@@ -13,13 +13,13 @@
 }:
 
 stdenv.mkDerivation rec {
-  pname = "rbutil";
-  version = "1.5.1";
+  pname = "rockbox-utility";
+  version = "1.4.1";
 
   src = fetchgit {
     url = "git://git.rockbox.org/rockbox.git";
     rev = "rbutil_${version}";
-    hash = "sha256-n5UnqBhRJ8R4AV2PLNTHuTIRuyDSqV1CjkQGlOHPIUY=";
+    hash = "sha256-n5UnqBhRJ8R4Ax2PLNTHuTIRuyDSqV1CjkQGlOHPIUY=";
   };
 
   nativeBuildInputs = [
