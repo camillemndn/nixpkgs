@@ -1,84 +1,78 @@
 {
   lib,
-  mkYarnPackage,
+  pnpm_9,
   fetchFromGitHub,
-  fetchYarnDeps,
+  stdenv,
   makeWrapper,
-  node-pre-gyp,
   nodejs,
   python3,
   sqlite,
+  srcOnly,
+  nix-update-script,
 }:
 
-mkYarnPackage rec {
+stdenv.mkDerivation (finalAttrs: {
   pname = "jellyseerr";
-  version = "1.9.2";
+  version = "2.1.0";
 
   src = fetchFromGitHub {
     owner = "Fallenbagel";
     repo = "jellyseerr";
-    rev = "v${version}";
-    hash = "sha256-TXe/k/pb7idu7G1wGu6TZksnoFQ5/PN0voVlve3k1UI=";
+    rev = "v${finalAttrs.version}";
+    hash = "sha256-5kaeqhjUy9Lgx4/uFcGRlAo+ROEOdTWc2m49rq8R8Hs=";
   };
 
-  packageJSON = ./package.json;
-
-  offlineCache = fetchYarnDeps {
-    yarnLock = "${src}/yarn.lock";
-    hash = "sha256-2iRxguxEI+YKm8ddhRgZMvfZuUgQmCK5ER4jMCFJQMQ=";
+  pnpmDeps = pnpm_9.fetchDeps {
+    inherit (finalAttrs) pname version src;
+    hash = "sha256-xu6DeaBArQmnqEnIgjc1DTZujQebSkjuai9tMHeQWCk=";
   };
 
-  nativeBuildInputs = [
-    nodejs
-    makeWrapper
+  buildInputs = [
+    sqlite
   ];
 
-  # Fixes "SQLite package has not been found installed" at launch
-  pkgConfig.sqlite3 = {
-    nativeBuildInputs = [
-      node-pre-gyp
-      python3
-      sqlite
-    ];
-    postInstall = ''
-      export CPPFLAGS="-I${nodejs}/include/node"
-      node-pre-gyp install --prefer-offline --build-from-source --nodedir=${nodejs}/include/node --sqlite=${sqlite.dev}
-      rm -r build-tmp-napi-v6
-    '';
-  };
+  nativeBuildInputs = [
+    python3
+    nodejs
+    makeWrapper
+    pnpm_9.configHook
+  ];
 
-  pkgConfig.bcrypt = {
-    nativeBuildInputs = [
-      node-pre-gyp
-      python3
-    ];
-    postInstall = ''
-      export CPPFLAGS="-I${nodejs}/include/node"
-      node-pre-gyp install --prefer-offline --build-from-source --nodedir=${nodejs}/include/node
-    '';
-  };
+  preBuild = ''
+    export npm_config_nodedir=${srcOnly nodejs}
+    pushd node_modules
+    pnpm rebuild bcrypt sqlite3
+    popd
+  '';
 
   buildPhase = ''
     runHook preBuild
-    (
-      shopt -s dotglob
-      cd deps/jellyseerr
-      rm -r config/*
-      yarn build
-      rm -r .next/cache
-    )
+
+    pnpm build
+    pnpm prune --prod --ignore-scripts
+    # Clean up broken symlinks left behind by `pnpm prune`
+    find node_modules/.bin -xtype l -delete
+
     runHook postBuild
   '';
 
+  installPhase = ''
+    runHook preInstall
+
+    mkdir -p $out/share
+    cp -r -t $out/share .next node_modules dist config package.json
+
+    runHook postInstall
+  '';
+
   postInstall = ''
+    mkdir -p $out/bin
     makeWrapper '${nodejs}/bin/node' "$out/bin/jellyseerr" \
-      --add-flags "$out/libexec/jellyseerr/deps/jellyseerr/dist/index.js" \
+      --add-flags "$out/share/dist/index.js" \
       --set NODE_ENV production
   '';
 
-  doDist = false;
-
-  passthru.updateScript = ./update.sh;
+  passthru.updateScript = nix-update-script { };
 
   meta = with lib; {
     description = "Fork of overseerr for jellyfin support";
@@ -93,4 +87,4 @@ mkYarnPackage rec {
     platforms = platforms.linux;
     mainProgram = "jellyseerr";
   };
-}
+})
