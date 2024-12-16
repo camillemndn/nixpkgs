@@ -11,19 +11,19 @@
   nix-update-script,
 }:
 
-stdenv.mkDerivation (finalAttrs: {
+stdenv.mkDerivation rec {
   pname = "jellyseerr";
   version = "2.1.0";
 
   src = fetchFromGitHub {
     owner = "Fallenbagel";
     repo = "jellyseerr";
-    rev = "v${finalAttrs.version}";
+    rev = "v${version}";
     hash = "sha256-5kaeqhjUy9Lgx4/uFcGRlAo+ROEOdTWc2m49rq8R8Hs=";
   };
 
   pnpmDeps = pnpm_9.fetchDeps {
-    inherit (finalAttrs) pname version src;
+    inherit pname version src;
     hash = "sha256-xu6DeaBArQmnqEnIgjc1DTZujQebSkjuai9tMHeQWCk=";
   };
 
@@ -87,4 +87,4 @@ stdenv.mkDerivation (finalAttrs: {
     platforms = platforms.linux;
     mainProgram = "jellyseerr";
   };
-})
+}
